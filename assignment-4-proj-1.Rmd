@@ -7,6 +7,10 @@ output: html_document
 
 <!-- https://rpubs.com/mrcuny/chess-tournament-data-wrangling -->
 
+[GitHub Link to Rmd file](https://github.com/mrcuny/assignment-4-project-1/blob/main/assignment-4-proj-1.Rmd)
+
+----
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
