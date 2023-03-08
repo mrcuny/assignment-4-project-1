@@ -1,0 +1,140 @@
+---
+title: "Assignment 4 Project 1"
+author: "Mohammed Rahman"
+date: "2023-03-06"
+output: html_document
+---
+
+<!-- https://rpubs.com/mrcuny/chess-tournament-data-wrangling -->
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Load the libraries to use:
+
+```{r}
+library(readr)
+library(stringr)
+```
+
+
+```{r}
+# Read the file as a string:
+tournament_str <- read_file("tournamentinfo.txt")
+
+# split at end of line and trim trailing white space:
+tournament_split <- strsplit(tournament_str, "\n")[[1]] |> trimws()
+
+# remove row separator:
+sep <- "-----------------------------------------------------------------------------------------"
+
+without_sep <- tournament_split[tournament_split != sep]
+
+# split at column sep "|"
+tournament_df <- without_sep |> strsplit(split = "\\|") |>
+   # bind rows:
+  do.call(what = rbind) |>
+  # convert to dataframe:
+  as.data.frame()
+
+# add column names:
+colnames(tournament_df) <- c(
+  "pair_num", "player_name", "total_pts", paste0("round", 1:7)
+)
+
+# remove the first 2 rows, not needed:
+tournament_df <- tournament_df[-c(1:2), ]
+
+# remove rownames, not needed:
+rownames(tournament_df) <- NULL
+
+# take a look at the first 10 entries:
+head(tournament_df, 10)
+
+# note: player names are on odd numbered rows, additional info is on even rows
+```
+
+Create a skeleton of the required dataframe:
+
+```{r}
+required_info <- data.frame(
+  player_name = character(),
+  player_state = character(),
+  total_pts = numeric(),
+  player_prerating = numeric(),
+  avg_prechess_rating_of_opponents = numeric()
+)
+```
+
+Loop through odd row numbers of `tournament_df` and fill 
+`required_info` as needed:
+
+```{r}
+odd_rows <- seq(from = 1, to = nrow(tournament_df), by = 2)
+
+pattern <- "\\bR:\\s*(\\d+)(?:\\D|$)"
+# eg. string <- "15445895 / R: 1794 ->1817"
+# the regex pattern would match 1794
+# string2 <- "15495066 / R: 1563P22->1562"
+# the regex pattern would match 1563
+
+for (i in odd_rows) {
+  player_name <- tournament_df$player_name[i] |> trimws()
+  player_state <- tournament_df$pair_num[i + 1] |> trimws()
+  total_pts <- tournament_df$total_pts[i] |> trimws() |> as.numeric()
+  
+  player_prerating <- {
+    x <- tournament_df$player_name[i + 1] |> trimws()
+    
+    str_match(x, pattern)[2] |> as.numeric()
+  }
+  
+  avg_prechess_rating_of_opponents <- {
+    # all rounds in current row:
+    all_rounds <- tournament_df[i, 4:ncol(tournament_df)] |>
+      as.character()
+    
+    # get pair nums of the opponents:
+    opponents_pair_num <- str_extract_all(all_rounds, "\\d+") |>
+      unlist()
+    
+    opponents_info <- tournament_df$player_name[
+      which(trimws(tournament_df$pair_num) %in% opponents_pair_num) + 1
+    ] |> 
+      str_match_all(pattern) |> 
+      unlist()
+    # opponents_info looks like this:
+    # [1] "R: 1563P" "1563"     "R: 1436P" "1436"  
+    
+    # subset only even indices:
+    opponents_info[seq(from = 2, to = length(opponents_info), by = 2)] |> 
+      as.numeric() |> 
+      # calculate pre-tournament opponent's rating:
+      mean() |> 
+      round()
+  }
+  
+  # add row to 'required_info':
+  required_info <- rbind(
+    required_info,
+    data.frame(
+      player_name, player_state, total_pts, player_prerating, 
+      avg_prechess_rating_of_opponents
+    )
+  )
+}
+```
+
+Take a look at first 10 rows of `required_info`:
+
+```{r}
+head(required_info, 10)
+```
+
+Generate a csv file:
+
+```{r}
+write.csv(required_info, file = "required_info.csv", row.names = FALSE)
+```
+
